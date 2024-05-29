@@ -63,12 +63,48 @@ function init() {
       // layout: $(go.ForceDirectedLayout, { defaultSpringLength: 10, maxIterations: 300 })
     }
   );
+  
+//I made this function in order to first of all, detect when an object is dragged
+//EXTERNALLY FROM the Palette onto the Diagram. Then, once its dragged into the
+//palette, it prints "*dragged item* was dragged into the diagram. Then now double
+//clicks on any of the palette menus will print a message that says it was double
+//clicked. Afterwards, if there exists a menu in the html file for the double clicked
+//element, it will show up. For now, this logic applies to TCP Client and Pin-Out, and 
+//can be expanded for more in the future.
+
+//I made the menus in the index.html file, and called them all here.
+
+myDiagram.addDiagramListener("ExternalObjectsDropped", function (e) {
+  // Iterate over all dropped parts
+  e.subject.each(function (part) {
+    // Check if the dropped part is a node
+    if (part instanceof go.Node) {
+      // I am able to detect double clicks on ALL of the nodes right now, but only double clicks on TCP Client and Pin-Out will generate their respective
+      //pop up menus
+        console.log(part.data.text + " node was dropped onto the diagram");
+        // Adding the double click functionality
+        part.doubleClick = function(event) {
+          // If a double click is detected, print it and specify the node too
+          console.log("Double click event detected on " + part.data.text);
+          // Showing the correct pop up menus depending on the double click detected earlier
+          if (part.data.text === "TCP Client") {
+            showNodePopupMenu(e); //Show TCP Client's pop up menu
+          } else if (part.data.text === "Pin-Out") {
+            showPinOutPopupMenu(e); //Show Pin-Out's pop up menu 
+            //This logic can be extended for more palette items if needed (same idea)
+          }
+        };
+    }
+  });
+});
+
   myDiagram.addDiagramListener("LinkDrawn", (e) => {
     let link = e.subject;
     let to = link.toNode;
     let from = link.fromNode;
     console.log(from.data);
   })
+
   // when the document is modified, add a "*" to the title and enable the "Save" button
   myDiagram.addDiagramListener("Modified", (e) => {
     var button = document.getElementById("SaveButton");
@@ -145,6 +181,7 @@ function init() {
       cursor: "pointer", // show a different cursor to indicate potential link point
     });
   }
+  
 
   function addPort(side, obj, e) {
     console.log(obj, e);
@@ -741,7 +778,7 @@ function init() {
       ),
       model: new go.GraphLinksModel(
         [
-          // specify the contents of the Palette
+          // Specifying the contents of the Palette
           {
             text: "A",
             figure: "Ellipse",
@@ -750,6 +787,30 @@ function init() {
           },
           {
             text: "IEStream",
+            figure:"Rectangle",
+            size: "90 65",
+            fill: "white",
+          },
+          {
+            text: "Device",
+            figure: "Rectangle",
+            size: "90 65",
+            fill: "white",
+          },
+          {
+            text: "Pin-Out", //Added Pin-Out to the palette
+            figure: "Rectangle",
+            size: "90 65",
+            fill: "white",
+          },
+          {
+            text: "Wrapper",
+            figure: "Rectangle",
+            size: "90 65",
+            fill: "white",
+          },
+          {
+            text: "TCP Client", //Added TCP Client to the palette
             figure: "Rectangle",
             size: "90 65",
             fill: "white",
@@ -834,7 +895,6 @@ function saveDiagramProperties() {
   );
 }
 function loadDiagramProperties(e) {
-  // set Diagram.initialPosition, not Diagram.position, to handle initialization side-effects
   var pos = myDiagram.model.modelData.position;
   if (pos) myDiagram.initialPosition = go.Point.parse(pos);
 }
@@ -843,3 +903,11 @@ window.addEventListener("DOMContentLoaded", init);
 document.addEventListener("drag", event => {
   console.log("dragging");
 });
+
+//Event listener for double clicks
+
+document.addEventListener("DOMContentLoaded", function() {
+    var diagram = go.Diagram.fromDiv(document.getElementById("myDiagramDiv"));
+    diagram.addDiagramListener("ObjectDoubleClicked", showNodePopupMenu);
+});
+
