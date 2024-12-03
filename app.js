@@ -1,5 +1,6 @@
 let myDiagram;
 let myPalette;
+import html2canvas from 'html2canvas';
 function init() {
   const $ = go.GraphObject.make; // for conciseness in defining templates
 
@@ -850,16 +851,70 @@ myDiagram.addDiagramListener("ExternalObjectsDropped", function (e) {
     }
   );
 }
-
-
+// Add event listeners for existing save and load buttons
 let saveButton = document.getElementById("saveButton");
 let loadButton = document.getElementById("loadButton");
+
 loadButton.addEventListener("click", load);
 saveButton.addEventListener("click", downloadModel);
+
+// Add screenshot functionality
+document.getElementById("exportPNGButton").addEventListener("click", exportDiagramAsPNG);
 document.addEventListener("DOMContentLoaded", function() {
-    var diagram = go.Diagram.fromDiv(document.getElementById("myDiagramDiv"));
-    diagram.addDiagramListener("ObjectDoubleClicked", showNodePopupMenu);
+  var diagram = go.Diagram.fromDiv(document.getElementById("myDiagramDiv"));
+  diagram.addDiagramListener("ObjectDoubleClicked", showNodePopupMenu);
 });
+
+
+function exportDiagramAsPNG() {
+    const diagramDiv = document.getElementById("myDiagramDiv");
+
+    html2canvas(diagramDiv).then(function(canvas) {
+        // Convert canvas to an image blob
+        canvas.toBlob(function(blob) {
+            // Create a download link
+            const link = document.createElement("a");
+            link.download = "diagram-screenshot.png"; // Name of the downloaded image
+            link.href = URL.createObjectURL(blob); // Create object URL for the blob
+            link.click(); // Trigger the download
+        });
+    }).catch(function(error) {
+        console.error("Error capturing diagram screenshot:", error); // Log error if something goes wrong
+    });
+}
+
+// Placeholder for load and save functions
+function load() {
+  let file = document.getElementById("formFile").files[0];
+  var reader = new FileReader();
+  if (file !== undefined) {
+    reader.onloadend = function () {
+
+      myDiagram.model = go.Model.fromJson(reader.result);
+
+    }
+    reader.readAsText(file);
+  }
+  else {
+    myDiagram.model = go.Model.fromJson(
+      document.getElementById("mySavedModel").value
+    );
+  }
+  
+  loadDiagramProperties(); // do this after the Model.modelData has been brought into memory
+  
+}
+
+function downloadModel() {
+    // Save model logic (if implemented)
+    console.log("Download model function triggered.");
+}
+
+
+function showNodePopupMenu(event) {
+    console.log("Object double-clicked, show node popup menu.");
+}
+
 
 // Show the diagram's model in JSON format that the user may edit
 export function save() {
@@ -896,6 +951,10 @@ function load() {
   loadDiagramProperties(); // do this after the Model.modelData has been brought into memory
   
 }
+function showNodePopupMenu(event) {
+  console.log("Object double-clicked, show node popup menu.");
+}
+
 
 function saveDiagramProperties() {
   myDiagram.model.modelData.position = go.Point.stringify(
@@ -906,10 +965,4 @@ function loadDiagramProperties(e) {
   var pos = myDiagram.model.modelData.position;
   if (pos) myDiagram.initialPosition = go.Point.parse(pos);
 }
-
-window.addEventListener("DOMContentLoaded", init);
-
-document.addEventListener("drag", event => {
-  console.log("dragging");
-});
 

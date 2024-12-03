@@ -49,6 +49,7 @@
 </head>
 <body>
   <div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.js" integrity="sha512-UNbeFrHORGTzMn3HTt00fvdojBYHLPxJbLChmtoyDwB6P9hX5mah3kMKm0HHNx/EvSPJt14b+SlD8xhuZ4w9Lg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="https://unpkg.com/gojs/release/go.js"></script>
     <script type="module" src="./app.js"></script>
@@ -59,7 +60,9 @@
         <button id="saveButton">Convert to JSON</button>
         <button id="loadPopup" data-modal="modal-info">Upload</button>
         <button id="downloadPopup" data-modal="file-info">Download Code</button>
-        <button id="saveLocallyButton">Save</button> <!-- Added the save button to store to local storage -->
+        <button id="saveLocallyButton" style="display: none;">Save</button> <!-- Added the save button to store to local storage -->
+        <button id="exportPNGButton">Export Screenshot</button> <!-- Screenshot Button -->
+        <button id="devsTraceViewer" onclick="window.location.href='https://134.117.53.10/graph-devs/';">View Trace</button> <!-- Trace Viewer -->
       </div>
       <textarea id="mySavedModel" style="width: 100%; height: 300px; display: none;">
         { "class": "go.GraphLinksModel",
@@ -76,7 +79,7 @@
       <div id="myDiagramDiv" style="flex-grow: 1; width: 90%; height: 94vh; border: solid 1px black; margin-right: 2px;"></div>
     </div>
   </div>
-  
+
   <!-- Popup Menu for TCP Client -->
   <div id="nodePopupMenu" class="popup-container">
     <span class="close-button" onclick="closePopup()">X</span>
@@ -126,13 +129,63 @@
     </div>
   </div>
 
+  <!-- Hidden Canvas for Screenshot Capture -->
+  <canvas id="screenshotCanvas" style="display: none;"></canvas>
+
   <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Screenshot functionality
+      document.getElementById("exportPNGButton").addEventListener("click", () => {
+        const diagramDiv = document.getElementById("myDiagramDiv");
+        
+        html2canvas(diagramDiv).then(canvas => {
+          // Store the captured canvas in the hidden canvas element
+          const screenshotCanvas = document.getElementById("screenshotCanvas");
+          const context = screenshotCanvas.getContext("2d");
+          screenshotCanvas.width = canvas.width;
+          screenshotCanvas.height = canvas.height;
+          context.drawImage(canvas, 0, 0);
+
+          // Open the popup for naming the screenshot
+          openPopup();
+        }).catch(error => {
+          alert("Error capturing screenshot: " + error.message);
+        });
+      });
+
+      // Open popup for screenshot
+      function openPopup() {
+        const popup = document.getElementById("file-info");
+        popup.style.display = "block";
+      }
+
+      // Close popup when clicked
+      document.querySelectorAll(".modal-exit").forEach(exitElement => {
+        exitElement.addEventListener("click", () => {
+          document.getElementById("file-info").style.display = "none";
+        });
+      });
+
+      document.getElementById("exportPNGButton").addEventListener("click", () => {
+          setTimeout(() => {
+          const canvas = document.getElementById("screenshotCanvas");
+          const name = document.getElementById("modalname").value.trim() || "screenshot";
+          canvas.toBlob((blob) => {
+            saveAs(blob, `${name}.png`);
+          });
+        }, 150); // Adding a timeout to ensure that the diagram is fully rendered before capturing a screenshot
+    });
+
+
+    });
+
     // Function to show the TCP Client pop up menu
     function showNodePopupMenu(event) {
       console.log("Showing TCP Client popup");
       var popup = document.getElementById("nodePopupMenu");
       popup.style.display = "block";
     }
+
     //Function to show the Pin-Out pop up menu
     function showPinOutPopupMenu(event) {
       console.log("Showing Pin-Out popup");
@@ -140,34 +193,21 @@
       popup.style.display = "block";
     }
 
-    // Function to close the popup
     function closePopup() {
       var popup = document.getElementById("nodePopupMenu");
       popup.style.display = "none";
     }
-    
+
+    function cancelPopup() {
+      var popup = document.getElementById("nodePopupMenu");
+      popup.style.display = "none";
+    }
+
     function closePinOutPopup() {
       var popup = document.getElementById("pinOutPopupMenu");
       popup.style.display = "none";
     }
-    
-    // Function to submit the popup
-    function submitPopup() { //Store in local storage
-      // Get the values from the user input fields
-      var wifiSSID = document.getElementById("wifiSSID").value;
-      var wifiPassword = document.getElementById("wifiPassword").value;
-      var tcpServerAddress = document.getElementById("tcpServerAddress").value;
-      var port = document.getElementById("port").value;
 
-      // Log the values
-      console.log("WIFI SSID:", wifiSSID);
-      console.log("WIFI Password:", wifiPassword);
-      console.log("TCP Server address:", tcpServerAddress);
-      console.log("Port:", port);
-      closePopup();
-    }
-    
-    // Get Pin-Out pop-up menu user input field entries and print them to console
     function configurePinOut() {
       const pinNumber = document.getElementById("pinNumberInput").value;
       const selectedOption = document.querySelector('input[name="option"]:checked').value;
@@ -179,7 +219,7 @@
 
       closePinOutPopup();
     }
-    
+
   </script>
 </body>
 </html>
