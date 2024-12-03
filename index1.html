@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
+  <meta name="description" content="Drag a link to reconnect it. Nodes have custom Adornments for selection, resizing, and rotating. The Palette includes links." />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./custom-style.css">
+  <title>DEVS</title>
+  <style>
+    /* Popup menu styles */
+    .popup-container {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: white;
+      border: 1px solid black;
+      padding: 10px;
+      cursor: move; /* Set cursor to indicate the container is draggable */
+      z-index: 1000; /* Ensure the container is above other elements */
+      display: none; /* Initially hide popups */
+    }
+    /* Close button styles */
+    .close-button {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      cursor: pointer;
+    }
+    input[type="text"] {
+      width: 100%; /* Full width */
+      margin-bottom: 10px; /* Add space between fields */
+    }
+    /* Style for buttons */
+    .popup-button {
+      margin-right: 5px; /* Add space between buttons */
+    }
+    /* Add space between radio buttons */
+    .radio-group {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+    }
+    .radio-group label {
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.js" integrity="sha512-UNbeFrHORGTzMn3HTt00fvdojBYHLPxJbLChmtoyDwB6P9hX5mah3kMKm0HHNx/EvSPJt14b+SlD8xhuZ4w9Lg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://unpkg.com/gojs/release/go.js"></script>
+    <script type="module" src="./app.js"></script>
+    <script type="module" src="./transform.js"></script>
+
+    <div style="float: right">
+      <div>
+        <button id="saveButton">Convert to JSON</button>
+        <button id="loadPopup" data-modal="modal-info">Upload</button>
+        <button id="downloadPopup" data-modal="file-info">Download Code</button>
+        <button id="saveLocallyButton" style="display: none;">Save</button> <!-- Added the save button to store to local storage -->
+        <button id="exportPNGButton">Export Screenshot</button> <!-- Screenshot Button -->
+        <button id="devsTraceViewer" onclick="window.location.href='https://134.117.53.10/graph-devs/';">View Trace</button> <!-- Trace Viewer -->
+      </div>
+      <textarea id="mySavedModel" style="width: 100%; height: 300px; display: none;">
+        { "class": "go.GraphLinksModel",
+          "copiesArrays": true,
+          "copiesArrayObjects": true,
+          "linkFromPortIdProperty": "fromPort",
+          "linkToPortIdProperty": "toPort",
+          "nodeDataArray": [],
+          "linkDataArray": [] }
+      </textarea>
+    </div>
+    <div style="width: 100%; display: flex; justify-content: space-between">
+      <div id="myPaletteDiv" style="width: 7%; margin: 0px 2px; background-color: whitesmoke; border: solid 1px black;"></div>
+      <div id="myDiagramDiv" style="flex-grow: 1; width: 90%; height: 94vh; border: solid 1px black; margin-right: 2px;"></div>
+    </div>
+  </div>
+
+  <!-- Popup Menu for TCP Client -->
+  <div id="nodePopupMenu" class="popup-container">
+    <span class="close-button" onclick="closePopup()">X</span>
+    <h3>Peripheral Configuration (TCP CLIENT)</h3>
+    <input type="text" id="wifiSSID" placeholder="WIFI SSID">
+    <input type="text" id="wifiPassword" placeholder="WIFI Password">
+    <input type="text" id="tcpServerAddress" placeholder="TCP Server address">
+    <input type="text" id="port" placeholder="Port">
+    <div>
+      <button class="popup-button" onclick="submitPopup()">Submit</button>
+      <button class="popup-button" onclick="cancelPopup()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Pop up menu for Pin-Out -->
+  <div id="pinOutPopupMenu" class="popup-container">
+    <h3>Peripheral Configuration (PIN-OUT)</h3>
+    <input type="text" id="pinNumberInput" placeholder="Pin number">
+    <div class="radio-group">
+      <input type="radio" id="ADC1_CH0radio" name="option" value="ADC1_CH0">
+      <label for="ADC1_CH0radio">ADC1_CH0</label>
+      <input type="radio" id="GPIO36radio" name="option" value="GPIO36">
+      <label for="GPIO36radio">GPIO36</label>
+    </div>
+    <input type="text" id="rateInput" placeholder="Rate (s)">
+    <span class="close-button" onclick="closePinOutPopup()">X</span>
+    <button class="popup-button" onclick="configurePinOut()">Submit</button>
+    <button class="popup-button" onclick="closePinOutPopup()">Cancel</button>
+  </div>
+
+  <div class="modal" id="modal-info">
+    <div class="modal-bg modal-exit"></div>
+    <div class="modal-container">
+      <h4 style="color: blue">Choose Model JSON to Upload</h4>
+      <input type="file" id="formFile">
+      <button id="loadButton">Load</button> <!-- Added loadButton -->
+      <a class="modal-close modal-exit">X</a>
+    </div>
+  </div>
+  <div class="modal" id="file-info">
+    <div class="modal-bg modal-exit"></div>
+    <div class="modal-container">
+      <h4 style="color: blue">Model Information</h4>
+      <input type="text" id="modalname">
+      <button id="downloadButton">Download</button>
+      <a class="modal-close modal-exit">X</a>
+    </div>
+  </div>
+
+  <!-- Hidden Canvas for Screenshot Capture -->
+  <canvas id="screenshotCanvas" style="display: none;"></canvas>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Screenshot functionality
+      document.getElementById("exportPNGButton").addEventListener("click", () => {
+        const diagramDiv = document.getElementById("myDiagramDiv");
+        
+        html2canvas(diagramDiv).then(canvas => {
+          // Store the captured canvas in the hidden canvas element
+          const screenshotCanvas = document.getElementById("screenshotCanvas");
+          const context = screenshotCanvas.getContext("2d");
+          screenshotCanvas.width = canvas.width;
+          screenshotCanvas.height = canvas.height;
+          context.drawImage(canvas, 0, 0);
+
+          // Open the popup for naming the screenshot
+          openPopup();
+        }).catch(error => {
+          alert("Error capturing screenshot: " + error.message);
+        });
+      });
+
+      // Open popup for screenshot
+      function openPopup() {
+        const popup = document.getElementById("file-info");
+        popup.style.display = "block";
+      }
+
+      // Close popup when clicked
+      document.querySelectorAll(".modal-exit").forEach(exitElement => {
+        exitElement.addEventListener("click", () => {
+          document.getElementById("file-info").style.display = "none";
+        });
+      });
+
+      document.getElementById("exportPNGButton").addEventListener("click", () => {
+          setTimeout(() => {
+          const canvas = document.getElementById("screenshotCanvas");
+          const name = document.getElementById("modalname").value.trim() || "screenshot";
+          canvas.toBlob((blob) => {
+            saveAs(blob, `${name}.png`);
+          });
+        }, 150); // Adding a timeout to ensure that the diagram is fully rendered before capturing a screenshot
+    });
+
+
+    });
+
+    // Function to show the TCP Client pop up menu
+    function showNodePopupMenu(event) {
+      console.log("Showing TCP Client popup");
+      var popup = document.getElementById("nodePopupMenu");
+      popup.style.display = "block";
+    }
+
+    //Function to show the Pin-Out pop up menu
+    function showPinOutPopupMenu(event) {
+      console.log("Showing Pin-Out popup");
+      var popup = document.getElementById("pinOutPopupMenu");
+      popup.style.display = "block";
+    }
+
+    function closePopup() {
+      var popup = document.getElementById("nodePopupMenu");
+      popup.style.display = "none";
+    }
+
+    function cancelPopup() {
+      var popup = document.getElementById("nodePopupMenu");
+      popup.style.display = "none";
+    }
+
+    function closePinOutPopup() {
+      var popup = document.getElementById("pinOutPopupMenu");
+      popup.style.display = "none";
+    }
+
+    function configurePinOut() {
+      const pinNumber = document.getElementById("pinNumberInput").value;
+      const selectedOption = document.querySelector('input[name="option"]:checked').value;
+      const rate = document.getElementById("rateInput").value;
+
+      console.log("Pin Number:", pinNumber);
+      console.log("Selected Option:", selectedOption);
+      console.log("Rate:", rate, "seconds");
+
+      closePinOutPopup();
+    }
+
+  </script>
+</body>
+</html>
+
